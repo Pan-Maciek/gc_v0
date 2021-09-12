@@ -17,6 +17,13 @@ struct GC {
   set<ptr*> roots;
   void phase1();
   void show();
+  template<typename T>
+  void setValue(void* objectRef, T* field, T value) {
+    *field = value;
+    if (old.contains((ptr) objectRef) && young.contains((ptr) value)) {
+      remembered_set.insert(ObjectHeader::fromRef(objectRef));
+    }
+  }
 
 private:
   stack<ObjectHeader*> stack;
@@ -105,3 +112,4 @@ void GC::show() {
 }
 
 #define allocate(_class) allocate<_class>(_class::klass())
+#define UpdateRef(obj, field, value) gc.setValue<typeof(obj->field)>(obj, &obj->field, value)

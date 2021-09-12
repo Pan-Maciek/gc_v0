@@ -41,15 +41,15 @@ void print_object(const ObjectHeader* obj, signed int indent) {
 
 void print_object_header(const ObjectHeader* obj, signed int indent) {
   Indent(std::cout, indent)
-  std::cout << "Header (" << obj->headerVoidPointer() << ") { " << std::endl;
+  std::cout << "Header (" << obj->headerVoidPointer() << ") { ";
 
-  Indent(std::cout, indent + 1);
-  std::cout << "Size: " << obj ->size() << std::endl;
-  Indent(std::cout, indent + 1);
-  std::cout << "Mark Word: " << (void*) obj->mark << std::endl;
+//  Indent(std::cout, indent + 1);
+  std::cout << "Size: " << obj ->size();
+//  Indent(std::cout, indent + 1);
+  std::cout << ", Mark Word: " << (void*) obj->mark;
 
-  Indent(std::cout, indent);
-  std::cout << "}" << std::endl;
+//  Indent(std::cout, indent);
+  std::cout << " }" << std::endl;
 }
 
 void print_verbose(const ObjectHeader* obj, signed int indent) {
