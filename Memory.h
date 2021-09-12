@@ -62,7 +62,7 @@ struct Memory {
     current += obj->size();
   }
 
-  bool contains(void* ref) const { return base <= ref and ref <= top; }
+  bool contains(ptr ref) const { return base <= ref and ref <= top; }
   void clean() { current = base; }
   size_t used() const { return current - base; }
 };

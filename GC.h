@@ -36,8 +36,6 @@ private:
       for (int i = 0; i < obj->klass->fields_count; i++ ) {
         FieldView field = obj ->field(i);
         if (field.type == Type::Reference) {
-          auto header = objectHeader(field);
-          printVerbose(obj, 0);
           stack.push(objectHeader(field));
         }
       }
@@ -46,7 +44,7 @@ private:
 };
 
 void GC::phase1() {
-//     1. Mark objects
+  // 1. Mark objects
   for (auto ref : roots) {
     stack.push(ref->header());
   }
@@ -60,47 +58,47 @@ void GC::phase1() {
   // 2. Calculate new positions for objects and store them in mark word
   ptr tmp = old.current;
   for(auto obj : marked) {
-    if (young.contains(obj)) {
+    if (young.contains(obj->headerPointer())) {
       obj->mark = tmp;
       tmp += obj->size();
     }
   }
 
-    // 3. Iterate rsyoung and marked objects in young and fix refs
+  // 3. Iterate rsyoung and marked objects in young and fix refs
+  // We should probably add rsyoung to makred set.
   for (auto obj : marked) {
-    if (young.contains(obj)) {
-      for(int i = 0; i < obj->klass->fields_count; i++) {
-        FieldView fieldView = obj->field(i);
-        if (young.contains(fieldView.cast<void*>())) {
-          *obj->refPointer(i) = objectHeader(fieldView)->mark + sizeof(ObjectHeader) + obj->klass->fields[i].offset;
-        }
+    for (int i = 0; i < obj->klass->fields_count; i++) {
+      FieldView fieldView = obj->field(i);
+      if (fieldView.type == Type::Reference && young.contains(fieldView.cast<ptr>())) {
+        *obj->refPointer(i) = objectHeader(fieldView)->mark + sizeof(ObjectHeader) + obj->klass->fields[i].offset;
       }
     }
   }
-    // 4. Update roots
-    for (RefBase* ref : roots) {
-      ref->ref = ref->header()->mark + sizeof(ObjectHeader);
-    }
 
-    // 4. Copy marked to old
-    for(auto obj : marked) {
-      if (young.contains(obj)) {
-        old.copy(obj);
-      }
+  // 4. Copy marked to old
+  for(auto obj : marked) {
+    if (young.contains(obj->headerPointer())) {
+      old.copy(obj);
     }
+  }
 
-    // 5. Clean young
-    young.clean();
+  // 5. Update roots
+  for (RefBase* ref : roots) {
+    ref->ref = ref->header()->mark + sizeof(ObjectHeader);
+  }
+
+  // 6. Clean young
+  young.clean();
 }
 
 void GC::show() {
     cout << "Young(" << young.used() << '/' << young.size << "): " << endl;
     for(ObjectHeader* obj : young)
-      printVerbose(obj, 1);
+      print_verbose(obj, 1);
 
     cout << "Old(" << old.used() << '/' << old.size << "): " << endl;
     for(ObjectHeader* obj : old)
-      printVerbose(obj, 1);
+      print_verbose(obj, 1);
 
     cout << endl;
 }

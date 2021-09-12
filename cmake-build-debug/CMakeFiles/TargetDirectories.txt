@@ -1,3 +1,0 @@
-/home/petroniuss/Studies/gc_v0/cmake-build-debug/CMakeFiles/rebuild_cache.dir
-/home/petroniuss/Studies/gc_v0/cmake-build-debug/CMakeFiles/edit_cache.dir
-/home/petroniuss/Studies/gc_v0/cmake-build-debug/CMakeFiles/gc1.dir

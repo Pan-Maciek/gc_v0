@@ -1,1 +1,0 @@
-/usr/bin/c++ -fpermissive -g CMakeFiles/gc1.dir/main.cpp.o -o gc1 

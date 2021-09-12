@@ -13,7 +13,7 @@ using ptr = byte*;
 struct FieldView {
   const char* name;
   Type type;
-  ptr pointer;
+  ptr pointer; // pointer to a field
 
   FieldView(const char* name, Type type, ptr pointer) : name(name), type(type), pointer(pointer) {}
 
@@ -22,8 +22,6 @@ struct FieldView {
   X cast() const {
     return *(X*) pointer;
   }
-
-
 };
 
 struct ObjectHeader {
@@ -96,5 +94,5 @@ struct RefBase {
 };
 
 ObjectHeader* objectHeader(FieldView& fieldView) {
-  return (ObjectHeader*) (fieldView.pointer - sizeof(ObjectHeader));
+  return (ObjectHeader*) (fieldView.cast<ptr>() - sizeof(ObjectHeader));
 }

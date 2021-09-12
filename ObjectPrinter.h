@@ -1,8 +1,8 @@
 #pragma once
 
-#define Indent(os, indent) for(int i = 0; i < indent; i++) { os << "\t"; }
+#define Indent(os, indent) for(int i = 0; i < indent; i++) { os << "  "; }
 
-void printFieldView(const FieldView& field, signed int indent) {
+void print_field_view(const FieldView& field, signed int indent) {
   Indent(std::cout, indent)
   switch (field.type) {
     case Type::Reference:
@@ -15,31 +15,31 @@ void printFieldView(const FieldView& field, signed int indent) {
   std::cout << std::endl;
 }
 
-void printObjectVague(const ObjectHeader* obj, signed int indent) {
+void print_object_vague(const ObjectHeader* obj, signed int indent) {
   Indent(std::cout, indent)
   std::cout << obj->klass->name << "(" << obj->objectVoidPointer() << ") { " << std::endl;
 
   for (FieldView fieldView : *obj) {
-    printFieldView(fieldView, indent + 1);
+    print_field_view(fieldView, indent + 1);
   }
 
   Indent(std::cout, indent);
   std::cout << "}" << std::endl;
 }
 
-void printObject(const ObjectHeader* obj, signed int indent) {
+void print_object(const ObjectHeader* obj, signed int indent) {
   Indent(std::cout, indent)
   std::cout << "Object" << "(" << obj->objectVoidPointer() << ") { " << std::endl;
 
   for (FieldView fieldView : *obj) {
-    printFieldView(fieldView, indent + 1);
+    print_field_view(fieldView, indent + 1);
   }
 
   Indent(std::cout, indent);
   std::cout << "}" << std::endl;
 }
 
-void printObjectHeader(const ObjectHeader* obj, signed int indent) {
+void print_object_header(const ObjectHeader* obj, signed int indent) {
   Indent(std::cout, indent)
   std::cout << "Header (" << obj->headerVoidPointer() << ") { " << std::endl;
 
@@ -52,17 +52,17 @@ void printObjectHeader(const ObjectHeader* obj, signed int indent) {
   std::cout << "}" << std::endl;
 }
 
-void printVerbose(const ObjectHeader* obj, signed int indent) {
+void print_verbose(const ObjectHeader* obj, signed int indent) {
   Indent(std::cout, indent)
   std::cout << obj->klass->name << " { " << std::endl;
 
-  printObjectHeader(obj, indent + 1);
-  printObject(obj, indent + 1);
+  print_object_header(obj, indent + 1);
+  print_object(obj, indent + 1);
 
   Indent(std::cout, indent)
   std::cout << "}" << std::endl;
 }
 
-void printVague(const ObjectHeader* obj, signed int indent) {
-  printObjectVague(obj, indent);
+void print_vague(const ObjectHeader* obj, signed int indent) {
+  print_object_vague(obj, indent);
 }

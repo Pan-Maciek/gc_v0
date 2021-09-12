@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+
 enum Type {
   Reference = 0,
   Int = 1,

@@ -36,14 +36,6 @@ struct Bar {
   }
 };
 
-//#define assing(x, y, z) { (x)->y = z; post(x, z); }
-
-//
-// ObjectHeader
-// Object
-// All pointers point to header.
-// if we want to get information from header header we subtract sizeof(Object) from reference.
-
 int main() {
   const size_t youngMemBytes = 256;
   const size_t oldMemBytes = 128;
