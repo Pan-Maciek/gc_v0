@@ -1,65 +1,100 @@
 #pragma once
-#include <iostream>
-#include "Klass.h"
+
 #include "GC.h"
+#include "Klass.h"
 #include <cassert>
+#include <cstdint>
+#include <cstring>
+#include <iostream>
 
 using byte = uint8_t;
 using ptr = byte*;
 
-struct Object {
-    ptr mark;
-    const Klass* klass;
-    Object() = delete;
+struct FieldView {
+  const char* name;
+  Type type;
+  ptr pointer;
 
-    ptr& ref(int i) const {
-        return *(ptr*) (((ptr) this) + sizeof (Object) + klass->refs[i]);
-    }
+  FieldView(const char* name, Type type, ptr pointer) : name(name), type(type), pointer(pointer) {}
 
-    Object* object(int i) const {
-        ptr _ref = ref(i);
-        return _ref == nullptr ? nullptr : (Object*)(_ref - sizeof(Object));
-    }
+  // reinterpret value
+  template<class X>
+  X cast() const {
+    return *(X*) pointer;
+  }
 
-    int size() const {
-        return sizeof(Object) + klass->size;
-    }
 
-    struct Iterator {
-        Object* const object;
-        int ref;
-        Iterator(Object* object, int ref) : object(object), ref(ref) {}
-
-        Iterator& operator++() {
-            ref++;
-            return *this;
-        }
-
-        Object* operator*() const {
-            return object->object(ref);
-        }
-
-        bool operator!=(Iterator other) const {
-            return ref != other.ref;
-        }
-    };
-
-    Iterator begin() { return {this, 0}; }
-    Iterator end() { return {this, this->klass->refcount}; }
 };
 
-std::ostream& operator<<(std::ostream& os, const Object& obj)
-{
-    os << obj.klass->name << "(0x" << &obj << ") { ";
-    for(int i = 0; i < obj.klass->refcount-1; i++)
-        os << obj.klass->names[i] << ": 0x" << (void*) obj.object(i) << ", ";
-    if (obj.klass->refcount > 0)
-        os << obj.klass->names[obj.klass->refcount - 1] << ": 0x" << (void*) obj.object(obj.klass->refcount - 1) << " }";
-    return os;
-}
+struct ObjectHeader {
+  ptr mark;
+  const Klass* klass;
+  ObjectHeader() = delete;
+
+  ptr headerPointer() const {
+    return (ptr) this;
+  }
+
+  void* headerVoidPointer() const {
+    return (void*) this;
+  }
+
+  ptr objectPointer() const {
+    return headerPointer() + sizeof(ObjectHeader);
+  };
+
+  void* objectVoidPointer() const {
+    return (void*) objectPointer();
+  }
+
+  ptr fieldPointer(int i) const {
+    return objectPointer() + klass->fields[i].offset;
+  }
+
+  ptr* refPointer(int i) {
+    return (ptr*) fieldPointer(i);
+  }
+
+  FieldView field(int i) const {
+    const Field field = klass->fields[i];
+    return { field.name, field.type, fieldPointer(i) };
+  }
+
+  size_t size() const {
+    return sizeof(ObjectHeader) + klass->size;
+  }
+
+  struct Iterator {
+    const ObjectHeader* const header;
+    size_t fieldCounter;
+    Iterator(const ObjectHeader* object, size_t fieldCounter) : header(object), fieldCounter(fieldCounter) {}
+
+    Iterator operator++() {
+      fieldCounter++;
+      return *this;
+    }
+
+    FieldView operator*() const {
+      return header->field(fieldCounter);
+    }
+
+    bool operator!=(Iterator other) const {
+      return fieldCounter != other.fieldCounter;
+    }
+  };
+
+  Iterator begin() const { return {this, 0}; }
+  Iterator end() const { return {this, this->klass->fields_count}; }
+};
+
 struct RefBase {
-    void* ref;
-    Object& object() {
-        return *(Object*) (((ptr) ref) - sizeof(Object));
-    }
+  void* ref;
+
+  ObjectHeader* header() const {
+    return (ObjectHeader*) (((ptr) ref) - sizeof(ObjectHeader));
+  }
 };
+
+ObjectHeader* objectHeader(FieldView& fieldView) {
+  return (ObjectHeader*) (fieldView.pointer - sizeof(ObjectHeader));
+}

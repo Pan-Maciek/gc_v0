@@ -1,7 +1,7 @@
 # Prerequisites
 *.d
 
-# Compiled Object files
+# Compiled Reference files
 *.slo
 *.lo
 *.o
@@ -30,3 +30,5 @@
 *.exe
 *.out
 *.app
+
+.idea
