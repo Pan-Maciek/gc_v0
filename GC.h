@@ -14,13 +14,14 @@ struct GC {
 
   explicit GC(int young, int old) : young(young), old(old) {}
 
-  set<RefBase*> roots;
+  set<ptr*> roots;
   void phase1();
   void show();
 
 private:
   stack<ObjectHeader*> stack;
   set<ObjectHeader*> marked;
+  set<ObjectHeader*> remembered_set;
 
   bool is_marked(ObjectHeader* obj) {
     return marked.contains(obj);
@@ -34,9 +35,9 @@ private:
     if (not is_marked(obj)) {
       mark(obj);
       for (int i = 0; i < obj->klass->fields_count; i++ ) {
-        FieldView field = obj ->field(i);
-        if (field.type == Type::Reference) {
-          stack.push(objectHeader(field));
+        FieldView field = obj->field(i);
+        if (field.type == Type::Reference and field.cast<ptr>() != nullptr) {
+          stack.push(ObjectHeader::fromFieldReference(field));
         }
       }
     }
@@ -46,7 +47,7 @@ private:
 void GC::phase1() {
   // 1. Mark objects
   for (auto ref : roots) {
-    stack.push(ref->header());
+    stack.push(ObjectHeader::fromRef(*ref));
   }
 
   while(!stack.empty()) {
@@ -70,7 +71,7 @@ void GC::phase1() {
     for (int i = 0; i < obj->klass->fields_count; i++) {
       FieldView fieldView = obj->field(i);
       if (fieldView.type == Type::Reference && young.contains(fieldView.cast<ptr>())) {
-        *obj->refPointer(i) = objectHeader(fieldView)->mark + sizeof(ObjectHeader) + obj->klass->fields[i].offset;
+        *obj->refPointer(i) = ObjectHeader::fromFieldReference(fieldView)->mark + sizeof(ObjectHeader) + obj->klass->fields[i].offset;
       }
     }
   }
@@ -83,8 +84,8 @@ void GC::phase1() {
   }
 
   // 5. Update roots
-  for (RefBase* ref : roots) {
-    ref->ref = ref->header()->mark + sizeof(ObjectHeader);
+  for (void* ref : roots) {
+    *((ptr*)ref) = ObjectHeader::fromRef(ref)->mark + sizeof(ObjectHeader);
   }
 
   // 6. Clean young
@@ -102,23 +103,5 @@ void GC::show() {
 
     cout << endl;
 }
-
-template<typename T>
-struct Ref : public RefBase {
-  GC* gc;
-
-  explicit Ref(GC& gc) : RefBase(), gc(&gc) {
-    this->ref = gc.young.template allocate<T>(T::klass());
-    gc.roots.insert(this);
-  }
-
-  T* operator*() {
-    return (T*) ref;
-  }
-
-  ~Ref() {
-    gc->roots.erase(this);
-  }
-};
 
 #define allocate(_class) allocate<_class>(_class::klass())

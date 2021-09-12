@@ -83,16 +83,12 @@ struct ObjectHeader {
 
   Iterator begin() const { return {this, 0}; }
   Iterator end() const { return {this, this->klass->fields_count}; }
-};
 
-struct RefBase {
-  void* ref;
+  static ObjectHeader* fromRef(void* ref) {
+    return (ObjectHeader*)(((ptr)ref) - sizeof(ObjectHeader));
+  }
 
-  ObjectHeader* header() const {
-    return (ObjectHeader*) (((ptr) ref) - sizeof(ObjectHeader));
+  static ObjectHeader* fromFieldReference(FieldView& fieldView) {
+    return (ObjectHeader*) (fieldView.cast<ptr>() - sizeof(ObjectHeader));
   }
 };
-
-ObjectHeader* objectHeader(FieldView& fieldView) {
-  return (ObjectHeader*) (fieldView.cast<ptr>() - sizeof(ObjectHeader));
-}
