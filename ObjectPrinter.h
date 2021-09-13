@@ -1,68 +1,40 @@
 #pragma once
 
-#define Indent(os, indent) for(int i = 0; i < indent; i++) { os << "  "; }
-
-void print_field_view(const FieldView& field, signed int indent) {
-  Indent(std::cout, indent)
-  switch (field.type) {
-    case Type::Reference:
-      std::cout << field.name << ": " << "Reference = " << field.cast<void*>();
-      break;
-    case Type::Int:
-      std::cout << field.name << ": " << "Int = " << field.cast<int>();
-      break;
+ostream& operator<<(ostream& os, Object* obj)
+{
+  os << obj->klass->name << "(0x" << obj->dataPointer().voidptr << ")";
+  if (Object::PrintingConfig.showHeader) {
+    os << "[mark: 0x" << obj->mark.voidptr << "]";
   }
-  std::cout << std::endl;
-}
+  const auto& fields = Object::PrintingConfig.fields;
+  if (fields.showPrimitives || fields.showReferences) {
+    os << "{ ";
+    unsigned int field = 0, last = obj->klass->fields_count-1;
+    for (; last > 0; last--) {
+      if (fields.showReferences and !obj->klass->fields[last].klass->primitive)
+        break;
+      if (fields.showPrimitives and obj->klass->fields[last].klass->primitive)
+        break;
+    }
+    for (auto fieldView : *obj) {
+      if (fieldView.is_primitive() and !fields.showPrimitives)
+        continue;
+      if (fieldView.is_ref() and !fields.showReferences)
+        continue;
 
-void print_object_vague(const ObjectHeader* obj, signed int indent) {
-  Indent(std::cout, indent)
-  std::cout << obj->klass->name << "(" << obj->objectVoidPointer() << ") { " << std::endl;
+      if (fields.showNames) os << fieldView.name() << " = ";
+      else os << "[" << fieldView.field.offset << "] = ";
 
-  for (FieldView fieldView : *obj) {
-    print_field_view(fieldView, indent + 1);
+      if (fields.showTypes) os << fieldView.field.klass->name;
+      if (fields.showValues) {
+        if (fields.showTypes) os << "(";
+        fieldView.show(os);
+        if (fields.showTypes) os << ")";
+      }
+      os << (field++ == last ? fields.lastSeparator : fields.separator);
+    }
+    os << "}";
   }
-
-  Indent(std::cout, indent);
-  std::cout << "}" << std::endl;
+  return os;
 }
 
-void print_object(const ObjectHeader* obj, signed int indent) {
-  Indent(std::cout, indent)
-  std::cout << "Object" << "(" << obj->objectVoidPointer() << ") { " << std::endl;
-
-  for (FieldView fieldView : *obj) {
-    print_field_view(fieldView, indent + 1);
-  }
-
-  Indent(std::cout, indent);
-  std::cout << "}" << std::endl;
-}
-
-void print_object_header(const ObjectHeader* obj, signed int indent) {
-  Indent(std::cout, indent)
-  std::cout << "Header (" << obj->headerVoidPointer() << ") { ";
-
-//  Indent(std::cout, indent + 1);
-  std::cout << "Size: " << obj ->size();
-//  Indent(std::cout, indent + 1);
-  std::cout << ", Mark Word: " << (void*) obj->mark;
-
-//  Indent(std::cout, indent);
-  std::cout << " }" << std::endl;
-}
-
-void print_verbose(const ObjectHeader* obj, signed int indent) {
-  Indent(std::cout, indent)
-  std::cout << obj->klass->name << " { " << std::endl;
-
-  print_object_header(obj, indent + 1);
-  print_object(obj, indent + 1);
-
-  Indent(std::cout, indent)
-  std::cout << "}" << std::endl;
-}
-
-void print_vague(const ObjectHeader* obj, signed int indent) {
-  print_object_vague(obj, indent);
-}

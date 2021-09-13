@@ -6,63 +6,59 @@
 struct Memory {
   ptr const base;
   ptr const top;
-  ptr current;
+  ObjPtr current;
   const size_t size;
   explicit Memory(size_t size) :
     size(size), base((ptr) malloc(size)),
-    top(base + size), current(base) { }
+    top(base + size), current({base}) { }
 
   template<typename T>
   T* allocate(const Klass& klass) {
     // this assumes that only a single thread is performing allocations at a time.
     // either lock or CAS instructions (or both) if we want to support multithreading in the prototype.
-    if (current + sizeof(ObjectHeader) + klass.size > top) {
+    if (current.ptr + sizeof(Object) + klass.size > top) {
       return nullptr;
     }
 
-    auto* header = (ObjectHeader*) current;
+    auto header = current.object;
     header->klass = &klass;
-    header->mark = nullptr;
-    current += sizeof(ObjectHeader);
+    header->mark.ptr = nullptr;
+    current.ptr += sizeof(Object);
 
-    for (int i = 0; i < klass.size; i++)
-      current[i] = 0;
-    T* t = new(current)(T);
-    current += klass.size;
+    memset(current.ptr, 0, klass.size);
+    T* t = new(current.ptr)(T);
+    current.ptr += klass.size;
 
     return t;
   }
 
   struct Iterator {
-    ptr current;
-    explicit Iterator(ptr ptr) : current(ptr) {}
+    ObjPtr current;
 
     Iterator& operator++() {
-      ObjectHeader * header = (ObjectHeader *) current;
-      current += header->klass->size + sizeof(ObjectHeader);
+      current.ptr += current.object->size();
       return *this;
     }
 
-    ObjectHeader* operator*() const {
-      return (ObjectHeader*) current;
+    Object* operator*() const {
+      return current.object;
     }
 
     bool operator!=(Iterator other) const {
-      return current != other.current;
+      return current.ptr != other.current.ptr;
     }
   };
 
-  Iterator begin() { return Iterator(base); }
-  Iterator end() { return Iterator(current); }
+  Iterator begin() const { return {base}; }
+  Iterator end() const { return {current}; }
 
-  void copy(ObjectHeader* obj) {
-    ptr src = (ptr) obj;
-    for (int i = 0; i < obj->size(); i++)
-      current[i] = src[i];
-    current += obj->size();
+  void copy(Object* obj) {
+    memcpy(current.ptr, obj, obj->size());
+    current.ptr += obj->size();
   }
 
-  bool contains(ptr ref) const { return base <= ref and ref <= top; }
-  void clean() { current = base; }
-  size_t used() const { return current - base; }
+  bool contains(void* ref) const { return base <= ref and ref <= top; }
+  bool contains(FieldView view) const { return contains(*view.pointer.ref); }
+  void clean() { current.ptr = base; }
+  size_t used() const { return current.ptr - base; }
 };

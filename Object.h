@@ -1,71 +1,79 @@
 #pragma once
-
 #include "GC.h"
 #include "Klass.h"
-#include <cassert>
-#include <cstdint>
-#include <cstring>
-#include <iostream>
 
-using byte = uint8_t;
-using ptr = byte*;
+using ptr = char*;
+
+struct Object;
+union ObjPtr {
+  ptr ptr, *ref;
+  Object* object;
+  void* voidptr;
+};
 
 struct FieldView {
-  const char* name;
-  Type type;
-  ptr pointer; // pointer to a field
+  const Field field;
+  ObjPtr const pointer;
 
-  FieldView(const char* name, Type type, ptr pointer) : name(name), type(type), pointer(pointer) {}
-
-  // reinterpret value
-  template<class X>
-  X cast() const {
-    return *(X*) pointer;
+  const char* name() const { return field.name; }
+  bool is_primitive() const { return field.klass->primitive; }
+  bool is_ref() const { return !is_primitive(); }
+  ostream &show(ostream & os) const {
+    if (is_ref() && field.klass->show == nullptr) {
+      return os << "0x" << (void*) *pointer.ref;
+    } else {
+      return field.klass->show(os, pointer.voidptr);
+    }
   }
 };
 
-struct ObjectHeader {
-  ptr mark;
+/**
+ * This class should not be constructed directly!
+ * Class represents a runtime object.
+ * Object consists of const size header and data segment dependant on underlying type.
+ * | Header { mark, klass } | Data { depends on klass } |
+ */
+struct Object final {
+  ObjPtr mark;
   const Klass* klass;
-  ObjectHeader() = delete;
 
-  ptr headerPointer() const {
-    return (ptr) this;
+  /**
+   * Primary way of constructing Object from existing reference.
+   * @param ref Pointer to Object data
+   */
+  static Object* fromRef(void* ref) {
+    return (Object*)(((ptr)ref) - sizeof(Object));
+  }
+  Object() = delete;
+
+  /**
+   * Pointer to Object data segment
+   */
+  ObjPtr dataPointer() const {
+    return {((ptr)this) + sizeof(Object)};
   }
 
-  void* headerVoidPointer() const {
-    return (void*) this;
+  /**
+   * Direct pointer to nth object field.
+   */
+  ObjPtr field(size_t n) const {
+    return {dataPointer().ptr + klass->fields[n].offset};
   }
 
-  ptr objectPointer() const {
-    return headerPointer() + sizeof(ObjectHeader);
-  };
-
-  void* objectVoidPointer() const {
-    return (void*) objectPointer();
+  FieldView fieldView(size_t i) const {
+    return { klass->fields[i], this->field(i) };
   }
 
-  ptr fieldPointer(int i) const {
-    return objectPointer() + klass->fields[i].offset;
-  }
-
-  ptr* refPointer(int i) {
-    return (ptr*) fieldPointer(i);
-  }
-
-  FieldView field(int i) const {
-    const Field field = klass->fields[i];
-    return { field.name, field.type, fieldPointer(i) };
-  }
-
+  /**
+   * Size of Object (header + data)
+   */
   size_t size() const {
-    return sizeof(ObjectHeader) + klass->size;
+    return sizeof(Object) + klass->size;
   }
 
   struct Iterator {
-    const ObjectHeader* const header;
+    const Object* const header;
     size_t fieldCounter;
-    Iterator(const ObjectHeader* object, size_t fieldCounter) : header(object), fieldCounter(fieldCounter) {}
 
     Iterator operator++() {
       fieldCounter++;
@@ -73,7 +81,7 @@ struct ObjectHeader {
     }
 
     FieldView operator*() const {
-      return header->field(fieldCounter);
+      return header->fieldView(fieldCounter);
     }
 
     bool operator!=(Iterator other) const {
@@ -84,11 +92,31 @@ struct ObjectHeader {
   Iterator begin() const { return {this, 0}; }
   Iterator end() const { return {this, this->klass->fields_count}; }
 
-  static ObjectHeader* fromRef(void* ref) {
-    return (ObjectHeader*)(((ptr)ref) - sizeof(ObjectHeader));
+
+  static Object* fromFieldView(FieldView& fieldView) {
+    return (Object*) (fieldView.pointer.ptr - sizeof(Object));
   }
 
-  static ObjectHeader* fromFieldReference(FieldView& fieldView) {
-    return (ObjectHeader*) (fieldView.cast<ptr>() - sizeof(ObjectHeader));
+  static struct PrintingConfigType {
+    bool showHeader;
+    struct {
+      bool showTypes, showNames, showValues;
+      bool showPrimitives, showReferences;
+      const char* separator;
+      const char* lastSeparator;
+    } fields;
+  } PrintingConfig;
+};
+
+Object::PrintingConfigType Object::PrintingConfig {
+  .showHeader = false,
+  .fields = {
+    .showTypes = false,
+    .showNames = true,
+    .showValues = true,
+    .showPrimitives = true,
+    .showReferences = true,
+    .separator = ", ",
+    .lastSeparator = " "
   }
 };
